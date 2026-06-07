@@ -14,10 +14,10 @@ return new class extends Migration
         Schema::create('reflections', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('user_habit_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('user_habit_id')->nullable()->constrained()->nullOnDelete();
             $table->date('date');
             $table->text('content');
-            $table->enum('mood', ['happy', 'sad', 'neutral', 'angry'])->default('happy');
+            $table->enum('mood', ['amazing', 'good', 'okey', 'unusual', 'bad'])->default('good');
             $table->timestamps();
         });
     }

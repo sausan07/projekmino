@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignId('user_habit_id')->constrained()->cascadeOnDelete();
-            $table->integer('duration_minutes');
+            $table->integer('duration_minutes')->nullable();
             $table->boolean('is_completed')->default(false);
             $table->timestamps();
         });

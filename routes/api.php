@@ -1,30 +1,62 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\ChallengeController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\HabitController;
 use App\Http\Controllers\Api\UserHabitController;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\ChallengeController;
+use App\Http\Controllers\Api\FocusTimerController;
+use App\Http\Controllers\Api\ReflectionController;
+use App\Http\Controllers\Api\DailyStoryController;
+use App\Http\Controllers\Api\DiamondTransactionController;
 
-Route::get('/user', function (Request $request) {
-    return $request->user();
-})->middleware('auth:sanctum');
-
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum'); //yg butuh token tambahin sancum, logout
+// ── Public routes (Bisa diakses tanpa login) ───────────────────────
 Route::post('/register', [AuthController::class, 'register']);
+Route::post('/login',    [AuthController::class, 'login']);
+Route::post('/auth/google', [AuthController::class, 'googleLogin']);
 
-// Route::middleware('auth:sanctum')->group(function () {
-//     Route::apiResource('userhabit', UserHabitController::class);
-//     //route chek user habit
-//     Route::post('/userhabit/{id}/check', [UserHabitController::class, 'check']);
+// ── Protected routes (Wajib bawa Token Sanctum) ────────────────────
+Route::middleware('auth:sanctum')->group(function () {
+    
+    // Dashboard Utama
+    Route::get('/dashboard', [DashboardController::class, 'index']);
 
-//     Route::post('/habit', [HabitController::class, 'store']);
-//     Route::patch('/habit/{id}', [HabitController::class, 'update']);
-//     Route::delete('/habit/{id}', [HabitController::class, 'destroy']);
-// });
+    // Logout
+    Route::post('/logout', [AuthController::class, 'logout']);
 
-Route::apiResource('/api-habit', HabitController::class)->middleware('auth:sanctum');
-Route::apiResource('/api-userhabit', UserHabitController::class)->middleware('auth:sanctum');
-Route::apiResource('/api-challenge', ChallengeController::class)->middleware('auth:sanctum');
+    // Habits (Master Data / Katalog Habit)
+    Route::get('/habits', [HabitController::class, 'index']);
+    Route::get('/habits/{id}', [HabitController::class, 'show']);
+
+    // User Habits (Habit yang sedang dijalankan oleh user)
+    Route::get('/user-habits', [UserHabitController::class, 'index']);            // TAMBAHAN: Untuk melihat list habit user
+    Route::post('/user-habits', [UserHabitController::class, 'store']);           // TAMBAHAN: Untuk mengambil/pilih habit baru
+    Route::post('/user-habits/check/{id}', [UserHabitController::class, 'check']); // Untuk nyentang habit hari ini
+
+    // Challenges
+    Route::get('/challenges', [ChallengeController::class, 'index']);
+    Route::get('/challenges/{id}', [ChallengeController::class, 'show']);
+
+    // Focus Timer
+    Route::post('/focus/start',      [FocusTimerController::class, 'start']);
+    Route::post('/focus/complete',   [FocusTimerController::class, 'complete']);
+    Route::get('/focus/history',     [FocusTimerController::class, 'history']);
+
+    // Reflections (Mood + Jurnal Harian)
+    Route::get('/reflections/today',    [ReflectionController::class, 'today']);
+    Route::get('/reflections',          [ReflectionController::class, 'index']);
+    Route::post('/reflections',         [ReflectionController::class, 'store']);
+    Route::get('/reflections/{date}',   [ReflectionController::class, 'show']);
+    Route::put('/reflections/{date}',   [ReflectionController::class, 'update']);
+    Route::delete('/reflections/{date}',[ReflectionController::class, 'destroy']);
+
+    // Daily Story (Cerita AI)
+    Route::get('/daily-story/{date}',   [DailyStoryController::class, 'show']);
+    Route::post('/daily-story/generate', [DailyStoryController::class, 'generate']);
+
+    // Diamonds & Transaksi
+    Route::get('/diamonds',      [DiamondTransactionController::class, 'diamonds']);
+    Route::get('/transactions',  [DiamondTransactionController::class, 'transactions']);
+
+}); // <--- Sudah ditutup dengan benar di sini

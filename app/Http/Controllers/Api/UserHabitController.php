@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\UserHabit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use App\Models\HabitLog;
+use App\Models\DiamondTransaction;
 
 class UserHabitController extends Controller
 {
@@ -143,10 +145,12 @@ class UserHabitController extends Controller
     }
 
     //CHECK habit (progress dn streak)
+    // CHECK habit (progress, streak, log, dan reward)
     public function check(Request $request, string $id)
     {
+        $user = $request->user();
         $userhabit = UserHabit::where('id', $id)
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', $user->id)
             ->first();
 
         if (!$userhabit) {
@@ -156,30 +160,66 @@ class UserHabitController extends Controller
             ], 404);
         }
 
-        $today = Carbon::today();
-        $last = $userhabit->updated_at ? Carbon::parse($userhabit->updated_at) : null;
+        $today = Carbon::today()->toDateString();
 
-        //sudah check hari ini
-        if ($last && $last->isSameDay($today)) {
+        // 1. Cek apakah sudah diselesaikan hari ini
+        $alreadyChecked = HabitLog::where('user_habit_id', $userhabit->id)
+            ->where('date', $today)
+            ->where('is_completed', true)
+            ->exists();
+
+        if ($alreadyChecked) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Sudah check hari ini'
             ], 400);
         }
 
-        //streak logic
-        if ($last && $last->diffInDays($today) == 1) {
-            $userhabit->streak += 1;
+        // 2. Cek Streak berdasarkan log sukses yang terakhir
+        $lastLog = HabitLog::where('user_habit_id', $userhabit->id)
+            ->where('is_completed', true)
+            ->orderBy('date', 'desc')
+            ->first();
+
+        if ($lastLog) {
+            $lastLogDate = Carbon::parse($lastLog->date);
+            if ($lastLogDate->diffInDays(Carbon::today()) == 1) {
+                // Lanjut streak jika kemarin mengerjakan
+                $userhabit->streak += 1;
+            } else {
+                // Reset streak jika bolong
+                $userhabit->streak = 1;
+            }
         } else {
+            // Hari pertama
             $userhabit->streak = 1;
         }
 
         $userhabit->current_day += 1;
         $userhabit->save();
 
+        // 3. Simpan atau Update ke HabitLog (is_completed = true)
+        HabitLog::updateOrCreate(
+            [
+                'user_habit_id' => $userhabit->id,
+                'date' => $today,
+            ],
+            [
+                'is_completed' => true,
+            ]
+        );
+
+        // 4. Tambahkan Reward +5 Diamonds
+        DiamondTransaction::create([
+            'user_id' => $user->id,
+            'amount' => 5,
+            'source' => 'habit_check',
+            'description' => 'Completed habit: ' . ($userhabit->habit->name ?? 'Unknown Habit')
+        ]);
+
         return response()->json([
             'status' => 'success',
-            'message' => 'Habit dicheck',
+            'message' => 'Habit dicheck, progress tersimpan, dan kamu mendapat +5 diamonds!',
             'streak' => $userhabit->streak
         ]);
     }

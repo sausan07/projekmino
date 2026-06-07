@@ -25,6 +25,7 @@ class DatabaseSeeder extends Seeder
             HabitSeeder::class,
             UserHabitSeeder::class,
             ChallengeSeeder::class,
+            FocusTimerSeeder::class,
         ]);
     }
 }

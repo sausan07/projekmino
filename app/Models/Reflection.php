@@ -6,16 +6,19 @@ use Illuminate\Database\Eloquent\Model;
 
 class Reflection extends Model
 {
-    protected $table = 'reflections';
     protected $fillable = [
         'user_id',
         'user_habit_id',
         'date',
         'content',
-        'mood'
+        'mood',
     ];
 
-    // RELASI
+    protected $casts = [
+        'date' => 'date',
+    ];
+
+    // Relasi
     public function user()
     {
         return $this->belongsTo(User::class);
