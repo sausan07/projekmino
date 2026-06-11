@@ -8,22 +8,42 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use App\Models\HabitLog;
 use App\Models\DiamondTransaction;
+use App\Models\Habit;
+use Illuminate\Support\Facades\Auth;
 
 class UserHabitController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $request)
+public function index(Request $request)
     {
-        $userhabit = UserHabit::with('habit')
+        $userhabits = UserHabit::with('habit')
             ->where('user_id', $request->user()->id)
             ->orderBy('id', 'ASC')
             ->get();
 
+        // Merapikan data sebelum dikirim ke Flutter
+        $formattedData = $userhabits->map(function ($item) {
+            return [
+                'id' => $item->id,
+                'user_id' => $item->user_id,
+                'habit_id' => $item->habit_id,
+                
+                // 🔥 LOGIKA UTAMA: Jika custom_name ada isinya, kirim itu. Jika tidak, kirim nama bawaan (master).
+                'name' => $item->custom_name ? $item->custom_name : ($item->habit->name ?? 'Unknown'),
+                
+                'start_date' => $item->start_date,
+                'current_day' => $item->current_day,
+                'streak' => $item->streak,
+                'status' => $item->status,
+                // Tambahkan field lain yang sekiranya dibutuhkan di Flutter (seperti is_completed kalau ada)
+            ];
+        });
+
         return response()->json([
             'status' => 'success',
-            'data' => $userhabit
+            'data' => $formattedData
         ], 200);
     }
 
@@ -31,40 +51,60 @@ class UserHabitController extends Controller
      * Store a newly created resource in storage.
      */
     //Tambah habit ke user
-    public function store(Request $request)
-    {
-        $request->validate([
-            'habit_id' => 'required|exists:habits,id'
-        ]);
+public function store(Request $request)
+{
+    // 1. Validasi input: Cukup minta 'name' berupa string dari Flutter
+    $request->validate([
+        'name' => 'required|string|max:255',
+    ]);
 
-        $user = $request->user();
+    $habitName = $request->name;
 
-        //biar gak dobel
-        $exists = UserHabit::where('user_id', $user->id)
-            ->where('habit_id', $request->habit_id)
-            ->exists();
+    // 2. OTOMATISASI: Cari di tabel master 'habits', apakah nama ini cocok dengan template?
+    $masterHabit = Habit::where('name', $habitName)->first();
 
-        if ($exists) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Habit sudah ada'
-            ], 400);
-        }
-
-        $data = UserHabit::create([
-            'user_id' => $user->id,
-            'habit_id' => $request->habit_id,
-            'start_date' => now()->toDateString(),
-            'current_day' => 0,
-            'streak' => 0,
-            'status' => 'active',
-        ]);
-
-        return response()->json([
-            'status' => 'success',
-            'data' => $data
-        ], 201);
+    if ($masterHabit) {
+        // Jika COCOK dengan template master (misal: "Membaca")
+        $habitId = $masterHabit->id;
+        $customName = null; // Kosongkan custom_name karena pakai nama template asli
+    } else {
+        // Jika TIDAK COCOK (berarti habit unik yang diketik sendiri oleh user)
+        // 🔥 PENTING: Pastikan kamu sudah membuat 1 baris data di tabel 'habits' dengan id = 1 untuk template 'Custom'
+        $habitId = 1; 
+        $customName = $habitName; // Masukkan tulisan uniknya ke custom_name
     }
+
+    // 3. Cek duplikasi agar user tidak menambah habit aktif yang sama persis
+    $exists = UserHabit::where('user_id', $request->user()->id)
+        ->where('habit_id', $habitId)
+        ->where('custom_name', $customName)
+        ->where('status', 'active')
+        ->exists();
+
+    if ($exists) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Kamu sudah menambahkan habit ini di dashboard!'
+        ], 400);
+    }
+
+    // 4. Simpan data habit baru
+    $userHabit = UserHabit::create([
+        'user_id'     => $request->user()->id,
+        'habit_id'    => $habitId,
+        'start_date'  => Carbon::today()->toDateString(),
+        'current_day' => 1,
+        'streak'      => 0,
+        'status'      => 'active',
+        'custom_name' => $customName,
+    ]);
+
+    return response()->json([
+        'status'  => 'success',
+        'message' => 'Habit baru berhasil ditambahkan!',
+        'data'    => $userHabit->load('habit')
+    ], 201);
+}
 
     /**
      * Display the specified resource.
@@ -93,30 +133,29 @@ class UserHabitController extends Controller
      * Update the specified resource in storage.
      */
 
-    public function update(Request $request, string $id)
+// Fungsi untuk mengedit nama habit
+    public function update(Request $request, $id)
     {
         $request->validate([
-            'status' => 'required|in:active,paused'
+            'name' => 'required|string|max:255'
         ]);
 
-        $userhabit = UserHabit::where('id', $id)
-            ->where('user_id', $request->user()->id)
+        // Cari data habit milik user tersebut
+        $userHabit = UserHabit::where('id', $id)
+            ->where('user_id', Auth::id())
             ->first();
 
-        if (!$userhabit) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Habit tidak ditemukan'
-            ], 404);
+        if (!$userHabit) {
+            return response()->json(['message' => 'Habit tidak ditemukan'], 404);
         }
 
-        $userhabit->update([
-            'status' => $request->status
-        ]);
+        // 🔥 SIMPAN NAMA BARUNYA KE KOLOM custom_name
+        $userHabit->custom_name = $request->name;
+        $userHabit->save();
 
         return response()->json([
             'status' => 'success',
-            'data' => $userhabit
+            'message' => 'Habit berhasil diupdate'
         ]);
     }
 

@@ -11,32 +11,35 @@ class UserHabitSeeder extends Seeder
     {
         DB::table('user_habits')->insert([
             [
-                'user_id' => 1,
-                'habit_id' => 1,
-                'start_date' => now()->toDateString(),
-                'current_day' => 2,
-                'streak' => 2,
-                'status' => 'active',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'user_id' => 1,
-                'habit_id' => 2,
+                'user_id' => 1,     // Pastikan User ID 1 ada di UserSeeder
+                'habit_id' => 2,    // 🔥 PERBAIKAN: Gunakan ID yang valid (2 = Minum Air)
                 'start_date' => now()->toDateString(),
                 'current_day' => 1,
-                'streak' => 1,
+                'streak' => 0,
                 'status' => 'active',
+                'custom_name' => null,
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
             [
-                'user_id' => 2,
-                'habit_id' => 3,
+                'user_id' => 1,
+                'habit_id' => 3,    // 🔥 PERBAIKAN: Gunakan ID yang valid (3 = Olahraga)
                 'start_date' => now()->toDateString(),
-                'current_day' => 0,
+                'current_day' => 1,
                 'streak' => 0,
-                'status' => 'paused',
+                'status' => 'active',
+                'custom_name' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'user_id' => 1,
+                'habit_id' => 1,    // 🔥 Contoh jika ingin membuat dummy habit kustom buatan user sendiri
+                'start_date' => now()->toDateString(),
+                'current_day' => 1,
+                'streak' => 0,
+                'status' => 'active',
+                'custom_name' => 'Belajar Flutter Terus', // Tulis nama kustomnya di sini
                 'created_at' => now(),
                 'updated_at' => now(),
             ],

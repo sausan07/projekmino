@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('focus_timers', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('user_habit_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('user_habit_id')->nullable()->constrained()->cascadeOnDelete();
             $table->integer('duration_minutes')->nullable();
             $table->boolean('is_completed')->default(false);
             $table->timestamps();

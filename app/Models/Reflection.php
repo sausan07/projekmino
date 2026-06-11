@@ -12,6 +12,7 @@ class Reflection extends Model
         'date',
         'content',
         'mood',
+        'title'
     ];
 
     protected $casts = [

@@ -21,17 +21,16 @@ class ReflectionController extends Controller
     }
 
     // POST /reflections — simpan atau update reflection hari ini
+// POST /reflections — simpan atau update reflection hari ini
     public function store(Request $request)
     {
         $request->validate([
-            'mood'         => 'required|in:amazing,good,okey,unusual,bad',
-            'content'      => 'nullable|string',
-            'user_habit_id'=> 'nullable|exists:user_habits,id',
+            'mood'    => 'required|in:amazing,good,okey,unusual,bad',
+            'title'   => 'nullable|string|max:255',
+            'content' => 'nullable|string',
         ]);
 
         $today = now()->toDateString();
-
-        // Satu reflection per hari per user (updateOrCreate)
 
         $reflection = Reflection::updateOrCreate(
             [
@@ -39,16 +38,14 @@ class ReflectionController extends Controller
                 'date'    => $today,
             ],
             [
-                'mood'          => $request->input('mood'),
-                'content'       => $request->input('content', ''), // Mengambil input 'content', default '' jika kosong
-                'user_habit_id' => $request->input('user_habit_id'),
+                'mood'    => $request->input('mood'),
+                'title'   => $request->input('title', 'Daily Reflection'), // Default jika kosong
+                'content' => $request->input('content', ''),
             ]
         );
 
         return response()->json([
-            'message'    => $reflection->wasRecentlyCreated
-                ? 'Reflection berhasil disimpan'
-                : 'Reflection hari ini diperbarui',
+            'message'    => $reflection->wasRecentlyCreated ? 'Journal berhasil dibuat' : 'Journal diperbarui',
             'reflection' => $reflection,
         ], $reflection->wasRecentlyCreated ? 201 : 200);
     }
