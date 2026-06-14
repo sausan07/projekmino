@@ -10,7 +10,7 @@ class Habit extends Model
     protected $fillable = [
         'name',
         'description',
-        'is_unlocked'
+        'is_unlocked',
     ];
 
     // RELASI

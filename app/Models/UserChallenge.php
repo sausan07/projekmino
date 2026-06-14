@@ -12,7 +12,9 @@ class UserChallenge extends Model
         'challenge_id',
         'progress_days',
         'last_progress_date',
-        'is_completed'
+        'is_completed',
+        'status'
+
     ];
 
     // RELASI

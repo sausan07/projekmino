@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\FocusTimer;
+// use App\Models\UserHabit;      // Aktifkan jika butuh akses model Habit
+// use App\Models\UserChallenge;  // Aktifkan jika butuh akses model Challenge
+use App\Models\DiamondTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\DiamondTransaction;
 
 class FocusTimerController extends Controller
 {
@@ -15,13 +17,16 @@ class FocusTimerController extends Controller
      */
     public function start(Request $request)
     {
+        // 🔥 TAMBAHAN: Validasi user_challenge_id
         $request->validate([
-            'user_habit_id' => 'nullable|exists:user_habits,id'
+            'user_habit_id' => 'nullable|exists:user_habits,id',
+            'user_challenge_id' => 'nullable|exists:user_challenges,id' // Sesuaikan nama tabelnya
         ]);
 
         $timer = FocusTimer::create([
             'user_id' => Auth::id(),
             'user_habit_id' => $request->user_habit_id,
+            'user_challenge_id' => $request->user_challenge_id, // 🔥 TAMBAHAN: Simpan ID Challenge
             'is_completed' => false,
             'duration_minutes' => null,
             'created_at' => now()
@@ -37,7 +42,7 @@ class FocusTimerController extends Controller
     /**
      * COMPLETE FOCUS
      */
-public function complete(Request $request)
+    public function complete(Request $request)
     {
         $request->validate([
             'id' => 'required|exists:focus_timers,id',
@@ -74,17 +79,60 @@ public function complete(Request $request)
             'is_completed' => true
         ]);
 
-        // 2. LOGIKA REWARD (TAMBAHKAN INI)
+        // 🔥 LOGIKA REWARD (MODE HYBRID: FOKUS + HABIT + CHALLENGE)
+        $user = Auth::user();
+        $totalDiamondEarned = 0;
+
+        // 1. Berikan Diamond Dasar (Reward Fokus)
+        $focusReward = 2;
+        $totalDiamondEarned += $focusReward;
+
         DiamondTransaction::create([
-            'user_id' => Auth::id(),
-            'amount' => 2,
+            'user_id' => $user->id,
+            'amount' => $focusReward,
             'source' => 'focus_timer',
             'description' => 'Completed focus session (' . $request->duration_minutes . ' mins)'
         ]);
 
+        // 2. Cek Jika Timer Terikat dengan Habit
+        if ($timer->user_habit_id) {
+            // Berikan bonus tambahan karena menyelesaikan habit
+            $habitReward = 5; // Misal dapat tambahan 5 diamond
+            $totalDiamondEarned += $habitReward;
+
+            DiamondTransaction::create([
+                'user_id' => $user->id,
+                'amount' => $habitReward,
+                'source' => 'habit_completed',
+                'description' => 'Completed habit via focus timer'
+            ]);
+        }
+
+        // 3. 🔥 Cek Jika Timer Terikat dengan Challenge
+        if ($timer->user_challenge_id) {
+            // Opsional: Kode untuk mengupdate status challenge di database jadi selesai
+            // $challenge = UserChallenge::find($timer->user_challenge_id);
+            // if ($challenge) { $challenge->update(['status' => 'done']); }
+
+            // Berikan bonus tambahan karena menyelesaikan challenge (biasanya lebih besar dari habit)
+            $challengeReward = 10; 
+            $totalDiamondEarned += $challengeReward;
+
+            DiamondTransaction::create([
+                'user_id' => $user->id,
+                'amount' => $challengeReward,
+                'source' => 'challenge_completed',
+                'description' => 'Completed challenge via focus timer'
+            ]);
+        }
+
+        // 4. Update Saldo Diamond User (PENTING!)
+        $user->increment('diamonds', $totalDiamondEarned);
+
         return response()->json([
             'status' => 'success',
-            'message' => 'Focus selesai, kamu mendapat +2 diamonds!',
+            'message' => "Focus selesai, kamu mendapat +{$totalDiamondEarned} diamonds!",
+            'diamond_earned' => $totalDiamondEarned, 
             'data' => $timer
         ]);
     }
